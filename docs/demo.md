@@ -62,7 +62,7 @@ The ledger line for the run:
 
 ## Branch protection
 
-The demo repo requires the statuses `trust-factory/checks` and `trust-factory/verifier` and an up-to-date branch on `main`. A test PR (#3, closed) showed the rule:
+On 2026-10-09, the demo repo required the statuses `trust-factory/checks` and `trust-factory/verifier` and an up-to-date branch on `main`. A test PR (#3, closed) showed the rule. The demo repo now requires `agent-works/checks` and `agent-works/verifier`, the names that the workflow posts today. The table below uses the old names:
 
 | Statuses on the PR's commit | GitHub merge state |
 |---|---|
