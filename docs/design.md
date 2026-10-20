@@ -1,12 +1,12 @@
-# trust-factory design
+# agent-works design
 
-This document is the single source of truth for the design of trust-factory. When a change alters behavior, names or formats, update this document in the same commit.
+This document is the single source of truth for the design of agent-works. When a change alters behavior, names or formats, update this document in the same commit.
 
 ## Thesis
 
 **An agent workflow that measures how much you can trust it.**
 
-Many agent workflows show that agents can open PRs. Few of them show how often their checks are correct. trust-factory makes trust measurable:
+Many agent workflows show that agents can open PRs. Few of them show how often their checks are correct. agent-works makes trust measurable:
 
 1. **A verifier scorecard.** A suite of seeded bad PRs and good PRs. We run it after each prompt change, and we publish the catch rate and the false-fail rate.
 2. **Fixed checks before model judgment.** A fail-first check proves that the new tests fail without the change. A criteria map connects each acceptance criterion to a test or to other evidence.
@@ -84,7 +84,7 @@ orchestrator   (the user's session; 2 issues at a time)
 
 The rule: merge only the commit that passed the checks, against the current base.
 
-- **Main method (GitHub does the work).** The check script posts a commit status on the checked commit. Branch protection requires that status (context `trust-factory/checks`) and an up-to-date branch. When the base moves, the orchestrator updates the PR branch. The head commit changes, so the checks must run again. Branch protection is free on public repos.
+- **Main method (GitHub does the work).** The check script posts a commit status on the checked commit. Branch protection requires that status (context `agent-works/checks`) and an up-to-date branch. When the base moves, the orchestrator updates the PR branch. The head commit changes, so the checks must run again. Branch protection is free on public repos.
 - **Fallback.** Where branch protection is not available, the script merges with `gh pr merge --match-head-commit`, and only one merge runs at a time.
 - **Default mode is `propose`.** The workflow marks the PR as ready for review, and a person merges it.
 
@@ -130,7 +130,7 @@ For an issue with the label `type:docs` or `type:chore`, the result is "skipped"
 
 1. Read the issue. An issue without the section "Acceptance criteria" stops with `needs-person`.
 2. Read the config from the default branch. Make a worktree from `branch.base` on the branch `<branch.prefix><issue>`, for example `agent/42`.
-3. Run the builder in the worktree with `claude -p`. The body of `agents/builder.md` is the system prompt, and its frontmatter gives the tools and the model. The builder can edit files in the worktree. It can run only `git add`, `git commit`, `git diff`, `git status`, `git log` and the verify commands. The rules deny `git push`, `gh` and all permission prompts. The session loads only the project settings. The builder's commits have the author "trust-factory builder".
+3. Run the builder in the worktree with `claude -p`. The body of `agents/builder.md` is the system prompt, and its frontmatter gives the tools and the model. The builder can edit files in the worktree. It can run only `git add`, `git commit`, `git diff`, `git status`, `git log` and the verify commands. The rules deny `git push`, `gh` and all permission prompts. The session loads only the project settings. The builder's commits have the author "agent-works builder".
 4. Check the builder's work: the builder reports `done`, it stays on its branch, it leaves no uncommitted changes, and it adds commits on top of the base.
 5. Push the branch. Open a draft PR with the builder's title and summary, and add `Closes #<issue>` to the body.
 
@@ -189,11 +189,11 @@ The exit code shows only whether the script ran: 0 means that the script wrote a
 | `needs-person` | Protected path, wrong base, no config, "unsure" result or attempt limit | `agent:needs-person` | `failure` |
 | `retry-later` | A temporary problem, for example the GitHub API | No change | none |
 
-The commit status has the context `trust-factory/checks`, and it covers only the fixed checks. `check.sh` does not merge, and it does not read the verifier result. The orchestrator adds the verifier result, the attempt limit and its own commit status, `trust-factory/verifier` (see "Orchestrator"). If the script cannot post the commit status, the result is `retry-later`.
+The commit status has the context `agent-works/checks`, and it covers only the fixed checks. `check.sh` does not merge, and it does not read the verifier result. The orchestrator adds the verifier result, the attempt limit and its own commit status, `agent-works/verifier` (see "Orchestrator"). If the script cannot post the commit status, the result is `retry-later`.
 
 ### Config
 
-The config lives in the target repo at `.trust-factory/config.json`. The check script reads it from the default branch of the repo, and the PR must target `branch.base`. The globs are git glob pathspecs: `**/` matches zero or more directories, and `*` does not match `/`.
+The config lives in the target repo at `.agent-works/config.json`. The check script reads it from the default branch of the repo, and the PR must target `branch.base`. The globs are git glob pathspecs: `**/` matches zero or more directories, and `*` does not match `/`.
 
 ```json
 {
@@ -206,7 +206,7 @@ The config lives in the target repo at `.trust-factory/config.json`. The check s
   "merge": {
     "mode": "propose",
     "auto_when": { "max_diff_lines": 150 },
-    "protected_paths": [".github/**", ".claude/**", ".trust-factory/**", "**/auth/**", "**/payments/**", "**/migrations/**"]
+    "protected_paths": [".github/**", ".claude/**", ".agent-works/**", "**/auth/**", "**/payments/**", "**/migrations/**"]
   }
 }
 ```
@@ -215,7 +215,7 @@ The values are first guesses. Change them after Phase 5.
 
 ### Orchestrator
 
-`scripts/factory.sh` makes every decision of the orchestrator. The skill `skills/trust-factory/SKILL.md` only starts it. The script runs in a clone of the target repo, with the verify tools on `PATH`.
+`scripts/factory.sh` makes every decision of the orchestrator. The skill `skills/agent-works/SKILL.md` only starts it. The script runs in a clone of the target repo, with the verify tools on `PATH`.
 
 - `run` takes the open issues with `agent:ready`, `limits.concurrent_issues` at a time, and it runs one attempt for each. It repeats until no issue has `agent:ready`. Its first round also takes the issues in `agent:working` or `agent:checking`, which a stopped run left. One run starts each issue at most `limits.attempts_per_issue` times.
 - `status` shows the `agent:*` issues and the last ledger record of each issue.
@@ -227,7 +227,7 @@ An attempt does these steps:
 1. Set `agent:working`, and run `build.sh` with the reasons from the last attempt as feedback.
 2. Set `agent:checking`, and run `check.sh`. A `recheck` runs the check again, up to three times.
 3. If the check gives `proposed`, run `verify.sh` in a worktree at the checked commit. `report.py verdict` rejects a criteria map that is not valid.
-4. Post the commit status `trust-factory/verifier` (`success` only for `pass`), and post an evidence comment on the PR: the checks and the criteria map.
+4. Post the commit status `agent-works/verifier` (`success` only for `pass`), and post an evidence comment on the PR: the checks and the criteria map.
 5. Decide, write one ledger line, and set the next label:
 
 | Result of the attempt | Status | Next label |
@@ -242,7 +242,7 @@ For `needs-person`, the script adds a comment to the issue with the reasons of e
 
 ### Run ledger
 
-The ledger is `.trust-factory/ledger.jsonl` in the target repo (not committed). Each finished attempt adds one JSON line. A run is one issue from `agent:ready` to a final status. Each line holds the totals of its run so far, so the last line of a run is its record:
+The ledger is `.agent-works/ledger.jsonl` in the target repo (not committed). Each finished attempt adds one JSON line. A run is one issue from `agent:ready` to a final status. Each line holds the totals of its run so far, so the last line of a run is its record:
 
 ```json
 {"issue": 42, "started": "2026-10-20T10:02:00Z", "finished": "2026-10-20T10:19:00Z", "attempts": 2, "tokens": 183000, "cost_usd": 1.12, "checks": ["proposed", "proposed"], "verdicts": ["fail", "pass"], "reasons": [], "status": "proposed", "pr": 57}
@@ -250,7 +250,7 @@ The ledger is `.trust-factory/ledger.jsonl` in the target repo (not committed). 
 
 After a `rebuild` line, the next attempt continues the same record. After a final status (`proposed` or `needs-person`), a new `agent:ready` starts a new record. A stopped attempt writes no line, so the next run starts that attempt again. The tokens of a stopped attempt are not recorded.
 
-`report.py ledger` shows one row for each run, so a failed run stays in the totals after a later run succeeds. For the latest run of an issue with a merged PR, it sets the status `merged` and fills in `human_edits`: true when a commit has an author other than "trust-factory builder".
+`report.py ledger` shows one row for each run, so a failed run stays in the totals after a later run succeeds. For the latest run of an issue with a merged PR, it sets the status `merged` and fills in `human_edits`: true when a commit has an author other than "agent-works builder".
 
 ### Trust suite
 
@@ -285,7 +285,7 @@ Scoring rules:
 
 | File | Approx. size | Job |
 |---|---|---|
-| `skills/trust-factory/SKILL.md` | 35 lines | The user interface: `run`, `status`, `stop`, `report`. It starts the scripts |
+| `skills/agent-works/SKILL.md` | 35 lines | The user interface: `run`, `status`, `stop`, `report`. It starts the scripts |
 | `scripts/factory.sh` | 155 lines | Orchestrator: attempts, decision table, labels, comments, ledger, parallel runs, stop and resume |
 | `scripts/verify.sh` | 35 lines | Runs the verifier on one PR. The trust suite uses it too |
 | `agents/builder.md` | 60 lines | Tests first, smallest safe change, draft PR |
@@ -328,7 +328,7 @@ One or two sentences.
 
 ### Phase 0: Decisions and pilot setup
 
-- [x] Choose the name: `trust-factory`.
+- [x] Choose the name: `trust-factory`. On 2026-10-21 the name changed to `agent-works`.
 - [x] Make the repo (private until Phase 6).
 - [x] Select a pilot repo with a verify command that runs in less than two minutes: `onishimura/private-pilot` (about 20 seconds for each check).
 - [x] Create the labels in the pilot repo.
@@ -422,7 +422,7 @@ These are first targets. Change them after Phase 5.
 | 2026-10-08 | Use our own config, labels, result format and defect categories | The project must show original work |
 | 2026-10-09 | Name: `trust-factory` | It states the thesis, and almost no other project uses it |
 | 2026-10-09 | The repo stays private until Phase 6 | The full history becomes visible when it goes public |
-| 2026-10-09 | The check script posts its own commit status context, `trust-factory/checks`, for the fixed checks only | A green status must not claim more than the script checked |
+| 2026-10-09 | The check script posts its own commit status context, `agent-works/checks`, for the fixed checks only | A green status must not claim more than the script checked |
 | 2026-10-09 | The check script reads the config from the default branch, and the PR must target `branch.base` | A commit status belongs to a commit, not to a PR. A PR into an agent branch could bring its own config and get a green status for a commit that later goes to the base |
 | 2026-10-09 | Fail-first runs the verify commands at the merge base with only the PR's test changes; the `verify` check covers "passes with the change" | The config has no command for single tests. At the merge base, the test changes always apply. One cause gives one failed check |
 | 2026-10-09 | A base conflict stops the check with `rebuild` before the slow checks | The builder must merge the base first, and then all checks run again |
@@ -440,12 +440,12 @@ These are first targets. Change them after Phase 5.
 | 2026-10-09 | Skip branch protection on the pilot for now | The pilot is private on a free plan. In `propose` mode a person merges, and the commit status still shows on each PR |
 | 2026-10-09 | The builder does not push or open PRs. `build.sh` does | A script enforces the branch prefix and the draft PR. An agent with push rights could push to the base |
 | 2026-10-09 | Agents run as `claude -p` processes, with the agent file as the system prompt | The output follows a JSON schema, and it has the cost and the token count for the ledger. Each role gets only its own tools and permission rules. The trust suite runs the verifier the same way |
-| 2026-10-09 | The builder's commits have the author "trust-factory builder" | The report can find commits by a person |
+| 2026-10-09 | The builder's commits have the author "agent-works builder" | The report can find commits by a person |
 | 2026-10-09 | Agent sessions load only the project settings | The user's own allow rules must not widen an agent's permissions |
 | 2026-10-09 | The builder must not change `PATH` or guess about its environment, and `build.sh` lists the denied commands | In the first pilot run, a denied `export PATH` led the builder to a false claim about the Node version |
 | 2026-10-09 | A script (`factory.sh`) is the orchestrator, and the skill only starts it | The decision table is a fixed rule, so a script applies it and offline tests check it |
 | 2026-10-09 | The core budget is approximately 720 lines | The orchestrator script (about 150 lines) and the ledger report keep the decisions in tested code. The core was 713 lines at the end of Phase 4 |
-| 2026-10-09 | The verifier result gets its own commit status, `trust-factory/verifier` | Each status claims only what its step checked. Branch protection can require both |
+| 2026-10-09 | The verifier result gets its own commit status, `agent-works/verifier` | Each status claims only what its step checked. Branch protection can require both |
 | 2026-10-09 | The ledger adds one line for each finished attempt; the last line of an issue is its record | The file is append-only, so a stop cannot damage it, and a resume finds the attempt count |
 | 2026-10-09 | A resumed issue starts its attempt again from the build | It is simple and correct. A stopped attempt left no ledger line |
 | 2026-10-09 | `trust-suite/run.sh` uses `scripts/verify.sh` | The scorecard measures the same verifier step that runs on real PRs |
@@ -460,6 +460,9 @@ These are first targets. Change them after Phase 5.
 | 2026-10-09 | `build.sh` changes `\n` escapes into line breaks when a summary has no line break | Demo run 1: the PR body showed the characters `\n` |
 | 2026-10-09 | The credits move from the README to `ACKNOWLEDGMENTS.md`, with each idea linked to the part of the design that uses it | The README stays short, and the credits show how each idea shaped the design |
 | 2026-10-09 | Before the repo goes public, the history uses the owner's GitHub no-reply email and calls the pilot `private-pilot` | The owner's email and the name of the private pilot repo must not become public |
+| 2026-10-21 | Rename `trust-factory` to `agent-works`. The rename covers the repo, the skill, the config directory `.agent-works/`, the commit status contexts `agent-works/checks` and `agent-works/verifier`, the builder author "agent-works builder" and the `refs/agent-works/` refs. `trust-suite/` and `factory.sh` keep their names | "Trust" claimed too much, and the name did not say that AI agents do the work. "Works" means a place of work and the work itself. The names that the workflow writes follow the project name, so one name is used everywhere |
+| 2026-10-21 | `report.py` also counts the old author "trust-factory builder" as the builder | Pilot PRs that merged before the rename have the old author. Without this rule, the report counts them as human edits |
+| 2026-10-21 | No fallback for the old config directory `.trust-factory/` | The project is two weeks old and has two known target repos. A repo that used the old name runs `git mv .trust-factory .agent-works` once and updates its required status checks. A fallback would add code for a one-time move |
 
 ## Open questions
 

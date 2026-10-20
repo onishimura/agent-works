@@ -11,10 +11,10 @@ setup() { # NAME: make the repos with a config on main, and an issue with criter
   export CLAUDE_STUB_DIR=$T/claude
   mkdir -p "$CLAUDE_STUB_DIR"
   make_repos
-  put .trust-factory/config.json '{
+  put .agent-works/config.json '{
   "branch": {"base": "main", "prefix": "agent/"},
   "checks": {"verify": ["sh run-tests.sh"], "fail_first": {"test_globs": ["tests/**"]}},
-  "merge": {"mode": "propose", "protected_paths": [".github/**", ".trust-factory/**"]}
+  "merge": {"mode": "propose", "protected_paths": [".github/**", ".agent-works/**"]}
 }'
   put run-tests.sh 'echo ok'
   commit "Base" && git -C "$T/work" push -q origin main
@@ -42,7 +42,7 @@ test_opens_a_draft_pr() {
   expect branch "$(field .branch)" agent/42
   expect commit "$(field .commit)" "$(git -C "$T/origin.git" rev-parse agent/42)"
   expect "pushed commit" "$(git -C "$T/origin.git" log -1 --format=%s agent/42)" "Add hello"
-  expect author "$(git -C "$T/origin.git" log -1 --format=%an agent/42)" "trust-factory builder"
+  expect author "$(git -C "$T/origin.git" log -1 --format=%an agent/42)" "agent-works builder"
   expect tokens "$(field .tokens)" 1200
   expect denied "$(field -c .denied)" '[]'
   local post; post=$(grep 'pulls -X POST' "$T/gh/calls.log")
@@ -73,7 +73,7 @@ test_prompt_and_permissions() {
   local log; log=$(log)
   contains issue "$log" "# Add a greeting"
   contains "verify command" "$log" "- sh run-tests.sh"
-  contains "protected path" "$log" "- .trust-factory/**"
+  contains "protected path" "$log" "- .agent-works/**"
   contains "allowed verify command" "$log" "arg: Bash(sh run-tests.sh:*)"
   contains "denied push" "$log" "arg: Bash(git push:*)"
   contains "no prompts" "$log" "arg: none"

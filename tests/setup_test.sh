@@ -20,19 +20,19 @@ test_creates_labels_config_ignore_and_skill_link() {
   expect "label posts" "$(label_posts)" 7
   grep -q 'name=agent:ready .*description=Ready for the builder' "$T/gh/calls.log" || fail "no agent:ready label"
   grep -q 'name=type:chore ' "$T/gh/calls.log" || fail "no type:chore label"
-  expect config "$(cat "$T/work/.trust-factory/config.json")" "$(cat "$TESTS_DIR/../config.example.json")"
-  expect ignore "$(cat "$T/work/.gitignore")" ".trust-factory/ledger.jsonl"
-  [ -f "$T/.claude/skills/trust-factory/SKILL.md" ] || fail "the skill is not linked"
-  expect "git status" "$(git -C "$T/work" status --porcelain | sort | tr '\n' ' ')" "?? .gitignore ?? .trust-factory/ "
+  expect config "$(cat "$T/work/.agent-works/config.json")" "$(cat "$TESTS_DIR/../config.example.json")"
+  expect ignore "$(cat "$T/work/.gitignore")" ".agent-works/ledger.jsonl"
+  [ -f "$T/.claude/skills/agent-works/SKILL.md" ] || fail "the skill is not linked"
+  expect "git status" "$(git -C "$T/work" status --porcelain | sort | tr '\n' ' ')" "?? .agent-works/ ?? .gitignore "
 }
 
 test_runs_again_without_changes() {
   run_setup
-  echo '{"custom": true}' > "$T/work/.trust-factory/config.json"
+  echo '{"custom": true}' > "$T/work/.agent-works/config.json"
   echo 'exit 1' > "$T/gh/labels.write.sh"   # the labels exist, so a POST fails
   run_setup
   expect "exit code" "$rc" 0
-  expect "kept config" "$(cat "$T/work/.trust-factory/config.json")" '{"custom": true}'
+  expect "kept config" "$(cat "$T/work/.agent-works/config.json")" '{"custom": true}'
   expect "one ignore line" "$(grep -c ledger "$T/work/.gitignore")" 1
   expect "label updates" "$(grep -c '^api repos/{owner}/{repo}/labels/.* -X PATCH' "$T/gh/calls.log")" 7
 }

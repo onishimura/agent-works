@@ -1,4 +1,4 @@
-# trust-factory
+# agent-works
 
 A small Claude Code workflow that builds GitHub issues with agents and measures how much you can trust the result.
 

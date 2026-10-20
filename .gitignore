@@ -5,7 +5,7 @@
 .claude/worktrees/
 
 # Local run data when the workflow runs on this repo
-.trust-factory/ledger.jsonl
+.agent-works/ledger.jsonl
 
 # Trust suite runs (verdicts and scorecards)
 trust-suite/results/

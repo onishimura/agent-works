@@ -1,7 +1,7 @@
 #!/bin/bash
-# setup.sh: prepare a target repo for trust-factory. See README.md, "Quick start".
+# setup.sh: prepare a target repo for agent-works. See README.md, "Quick start".
 # Usage: setup.sh   (run it in a clone of the target repo)
-# It creates or updates the labels on GitHub, writes .trust-factory/config.json from
+# It creates or updates the labels on GitHub, writes .agent-works/config.json from
 # config.example.json if it is missing, ignores the ledger, and links the skill into
 # ~/.claude/skills. It does not commit or push.
 set -uo pipefail
@@ -25,10 +25,10 @@ type:chore|BFD4F2|Maintenance with no new behavior; the fail-first check is skip
 EOF
 echo "Labels: ready."
 
-mkdir -p .trust-factory
-[ -f .trust-factory/config.json ] || cp "$here/../config.example.json" .trust-factory/config.json
-grep -qx '.trust-factory/ledger.jsonl' .gitignore 2> /dev/null || echo '.trust-factory/ledger.jsonl' >> .gitignore
+mkdir -p .agent-works
+[ -f .agent-works/config.json ] || cp "$here/../config.example.json" .agent-works/config.json
+grep -qx '.agent-works/ledger.jsonl' .gitignore 2> /dev/null || echo '.agent-works/ledger.jsonl' >> .gitignore
 mkdir -p "$HOME/.claude/skills"
-[ -e "$HOME/.claude/skills/trust-factory" ] || ln -s "$(cd "$here/../skills/trust-factory" && pwd)" "$HOME/.claude/skills/trust-factory"
-echo "Next: edit checks.verify and checks.fail_first.test_globs in .trust-factory/config.json,"
+[ -e "$HOME/.claude/skills/agent-works" ] || ln -s "$(cd "$here/../skills/agent-works" && pwd)" "$HOME/.claude/skills/agent-works"
+echo "Next: edit checks.verify and checks.fail_first.test_globs in .agent-works/config.json,"
 echo "then commit it and .gitignore to the default branch."

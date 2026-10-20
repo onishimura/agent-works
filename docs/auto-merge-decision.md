@@ -32,7 +32,7 @@ The ledger report (`report.py ledger`) for all runs:
 - Runs: 16, for 10 issues. Proposed or merged: 14 of 16 runs (88%).
 - Attempts: 1.1 for each run on average.
 - Tokens: 6,680,979. Cost: $8.43. Time: 2.5 minutes for each run on average.
-- Merged PRs with human edits: 0 of 9. Each commit on a merged PR has the author "trust-factory builder".
+- Merged PRs with human edits: 0 of 9. Each commit on a merged PR has the author "trust-factory builder", the name before the rename to agent-works.
 
 ### Merges and the base branch
 
@@ -78,7 +78,7 @@ The agent work in this pilot was good: 9 of 10 issues merged with no human edits
 
 Allow `auto` for small changes when all of these are true:
 
-- [ ] The merge rule is enforced: branch protection that requires `trust-factory/checks` and `trust-factory/verifier` on an up-to-date branch, or the `--match-head-commit` fallback with one merge at a time.
+- [ ] The merge rule is enforced: branch protection that requires `agent-works/checks` and `agent-works/verifier` on an up-to-date branch, or the `--match-head-commit` fallback with one merge at a time.
 - [ ] After each merge, the workflow re-checks the open PRs and rebuilds the ones that conflict, with no person.
 - [ ] The pilot has no shared counter lines in its docs, or the workflow resolves them. This is a decision for the pilot owner, because `CLAUDE.md` is a protected path.
 - [ ] 20 more pilot issues, written by the owner: at least 90% merged with no human edits, and no merge breaks `main`.

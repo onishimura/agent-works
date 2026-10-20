@@ -30,11 +30,11 @@ EOF
 }
 
 config() { # ATTEMPTS: write the config on main
-  put .trust-factory/config.json "{
+  put .agent-works/config.json "{
   \"branch\": {\"base\": \"main\", \"prefix\": \"agent/\"},
   \"checks\": {\"verify\": [\"sh run-tests.sh\"], \"fail_first\": {\"test_globs\": [\"tests/**\"]}},
   \"limits\": {\"concurrent_issues\": 2, \"attempts_per_issue\": $1},
-  \"merge\": {\"mode\": \"propose\", \"protected_paths\": [\".trust-factory/**\"]}
+  \"merge\": {\"mode\": \"propose\", \"protected_paths\": [\".agent-works/**\"]}
 }"
 }
 
@@ -82,7 +82,7 @@ verdict() { # RESULT MET EVIDENCE [CONCERN]: a criteria map
 }
 factory() { (cd "$T/clone" && "$FACTORY" "$@") > "$T/stdout" 2> "$T/stderr"; rc=$?; }
 labels_of() { bash "$T/gh/issues-$1-labels.sh" | jq -r '[.[].name] | join(",")'; }
-ledger() { jq -sc "$1" "$T/clone/.trust-factory/ledger.jsonl"; }
+ledger() { jq -sc "$1" "$T/clone/.agent-works/ledger.jsonl"; }
 status_of() { grep "statuses/.* context=$1" "$T/gh/calls.log" | sed -n 's/.*state=\([a-z]*\).*/\1/p' | tail -1; }
 
 # --- Tests -------------------------------------------------------------------
@@ -92,8 +92,8 @@ test_issue_reaches_proposed() {
   expect labels "$(labels_of 42)" bug,agent:proposed
   expect ledger "$(ledger 'map({attempts, status, checks, verdicts, pr, tokens, cost_usd})')" \
     '[{"attempts":1,"status":"proposed","checks":["proposed"],"verdicts":["pass"],"pr":142,"tokens":2400,"cost_usd":0.5}]'
-  expect "checks status" "$(status_of trust-factory/checks)" success
-  expect "verifier status" "$(status_of trust-factory/verifier)" success
+  expect "checks status" "$(status_of agent-works/checks)" success
+  expect "verifier status" "$(status_of agent-works/verifier)" success
   grep -q '^pr ready 142$' "$T/gh/calls.log" || fail "the PR was not marked ready"
   contains evidence "$(cat "$T/gh/issues-142-comments.input")" "| sub 5 3 prints 2 | true | test: tests/sub.test.sh |"
   contains stdout "$(cat "$T/stdout")" "#42: attempt 1: proposed"
@@ -120,7 +120,7 @@ test_attempt_limit_goes_to_a_person() {
   expect ledger "$(ledger 'map(.status)')" '["rebuild","needs-person"]'
   contains comment "$(cat "$T/gh/issues-42-comments.input")" $'Attempt 1:\n- criterion not met: sub 5 3 prints 2 (missing)'
   contains comment "$(cat "$T/gh/issues-42-comments.input")" $'Attempt 2:\n- criterion not met: sub 5 3 prints 2 (missing)\n- the attempt limit (2) is reached'
-  expect "verifier status" "$(status_of trust-factory/verifier)" failure
+  expect "verifier status" "$(status_of agent-works/verifier)" failure
 }
 
 test_unsure_goes_to_a_person() {
@@ -138,7 +138,7 @@ test_invalid_verdict_goes_to_a_person() {
   factory issue 42
   expect labels "$(labels_of 42)" bug,agent:needs-person
   expect verdicts "$(ledger 'map(.verdicts)')" '[["invalid"]]'
-  expect "verifier status" "$(status_of trust-factory/verifier)" failure
+  expect "verifier status" "$(status_of agent-works/verifier)" failure
 }
 
 test_check_failure_skips_the_verifier() {
@@ -179,7 +179,7 @@ test_stop_and_resume() {
   wait "$job"
   expect "label after stop" "$(labels_of 42)" bug,agent:working
   expect "ledger after stop" "$(ledger length)" 0
-  [ ! -f "$T/clone/.git/trust-factory.pid" ] || fail "the pid file is still there"
+  [ ! -f "$T/clone/.git/agent-works.pid" ] || fail "the pid file is still there"
   builder "$fast"
   factory run
   expect "label after resume" "$(labels_of 42)" bug,agent:proposed
@@ -195,7 +195,7 @@ test_status_shows_labels_and_ledger() {
 
 test_only_one_run_at_a_time() {
   sleep 30 & local other=$!
-  echo "$other" > "$T/clone/.git/trust-factory.pid"
+  echo "$other" > "$T/clone/.git/agent-works.pid"
   factory run
   kill "$other"
   expect "exit code" "$rc" 1

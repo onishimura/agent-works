@@ -2,6 +2,8 @@
 
 This demo uses the public repo [`onishimura/trust-factory-demo`](https://github.com/onishimura/trust-factory-demo), a small Python package. The steps follow the README "Quick start". The date is 2026-10-09.
 
+> **Name note:** this demo ran under the old project name, `trust-factory`. The clone step and the status names below use that name. The workflow now posts `agent-works/checks` and `agent-works/verifier`.
+
 ## Setup time
 
 The steps ran back to back, so the times below do not include the time that a person needs to read and type.

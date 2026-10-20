@@ -1,14 +1,14 @@
-# trust-factory
+# agent-works
 
-**An agent workflow that measures how much you can trust it.**
+**AI agents that build your GitHub issues, and a measure of how far to trust the result.**
 
-trust-factory is a small Claude Code workflow for GitHub repos. A person marks an issue as ready. A builder agent makes the change in its own worktree, and a script opens a draft PR. Fixed checks run first. Then a verifier agent, which cannot edit code, connects each acceptance criterion to evidence. Every run writes a record, and a seeded test suite measures how well the verifier finds bad PRs.
+agent-works is a small Claude Code workflow for GitHub repos. A person marks an issue as ready. A builder agent makes the change in its own worktree, and a script opens a draft PR. Fixed checks run first. Then a verifier agent, which cannot edit code, connects each acceptance criterion to evidence. Every run writes a record, and a seeded test suite measures how well the verifier finds bad PRs.
 
 > **Status:** public since 2026-10-09. The whole workflow runs and has offline tests (`tests/run.sh`). One Phase 6 check is open: a first-time user times the quick start. The full design is in [`docs/design.md`](docs/design.md).
 
 ## Why
 
-Many agent workflows show that agents can open PRs. Few of them show how often their own "pass" is correct. trust-factory makes that number visible:
+Many agent workflows show that agents can open PRs. Few of them show how often their own "pass" is correct. agent-works makes that number visible:
 
 - **Verifier scorecard:** seeded bad PRs and good PRs give a catch rate and a false-fail rate.
 - **Fixed checks first:** new tests must fail without the change and pass with it. Each acceptance criterion must link to evidence.
@@ -34,8 +34,8 @@ The workflow stays in `propose` mode: a person merges each PR. The decision docu
 ```text
 issue + agent:ready  (a person)
   → build.sh    worktree, builder agent (tests first), draft PR
-  → check.sh    fail-first, verify commands, protected paths → commit status trust-factory/checks
-  → verify.sh   verifier agent: criteria map with evidence → commit status trust-factory/verifier
+  → check.sh    fail-first, verify commands, protected paths → commit status agent-works/checks
+  → verify.sh   verifier agent: criteria map with evidence → commit status agent-works/verifier
   → factory.sh  decision, labels, evidence comment, ledger line
   → agent:proposed (a person merges) | agent:ready (rebuild) | agent:needs-person
 ```
@@ -49,19 +49,19 @@ issue + agent:ready  (a person)
 
 You need macOS or Linux with Bash 3.2 or later, git 2.38 or later, Python 3.9 or later, `jq`, and `gh` and Claude Code, both logged in.
 
-1. Get trust-factory:
+1. Get agent-works:
 
    ```bash
-   git clone https://github.com/onishimura/trust-factory.git ~/trust-factory
+   git clone https://github.com/onishimura/agent-works.git ~/agent-works
    ```
 
-2. In a clone of your target repo, run the setup script. It creates the labels, writes `.trust-factory/config.json`, ignores the ledger and links the skill. It does not commit.
+2. In a clone of your target repo, run the setup script. It creates the labels, writes `.agent-works/config.json`, ignores the ledger and links the skill. It does not commit.
 
    ```bash
-   ~/trust-factory/scripts/setup.sh
+   ~/agent-works/scripts/setup.sh
    ```
 
-3. Edit `.trust-factory/config.json`: the verify commands, the test globs and the protected paths. Commit it and `.gitignore` to the default branch.
+3. Edit `.agent-works/config.json`: the verify commands, the test globs and the protected paths. Commit it and `.gitignore` to the default branch.
 
 4. Write an issue with the sections "Goal", "Acceptance criteria" and "Out of scope". Then mark it as ready:
 
@@ -69,25 +69,25 @@ You need macOS or Linux with Bash 3.2 or later, git 2.38 or later, Python 3.9 or
    gh issue edit 1 --add-label agent:ready
    ```
 
-5. Run the workflow, with the tools for your verify commands on `PATH`. In Claude Code in the target repo, use `/trust-factory run`. Or run the script directly:
+5. Run the workflow, with the tools for your verify commands on `PATH`. In Claude Code in the target repo, use `/agent-works run`. Or run the script directly:
 
    ```bash
-   ~/trust-factory/scripts/factory.sh run
+   ~/agent-works/scripts/factory.sh run
    ```
 
 6. Review the PR and its evidence comment, then merge it. See the results:
 
    ```bash
-   python3 ~/trust-factory/scripts/report.py ledger .trust-factory/ledger.jsonl
+   python3 ~/agent-works/scripts/report.py ledger .agent-works/ledger.jsonl
    ```
 
 To see the scorecard, run the trust suite. It uses model tokens, about $0.40 for each run.
 
 ```bash
-~/trust-factory/trust-suite/run.sh
+~/agent-works/trust-suite/run.sh
 ```
 
-For full merge safety, turn on branch protection for the default branch. Require the status checks `trust-factory/checks` and `trust-factory/verifier`, and require an up-to-date branch.
+For full merge safety, turn on branch protection for the default branch. Require the status checks `agent-works/checks` and `agent-works/verifier`, and require an up-to-date branch.
 
 ## Progress
 
@@ -111,7 +111,7 @@ The tests are offline. They use local git repos and stubs for `gh` and `claude`.
 
 ## Acknowledgments
 
-trust-factory takes ideas from other projects and articles, but none of their code. [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md) names each source, its idea and where the design uses it.
+agent-works takes ideas from other projects and articles, but none of their code. [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md) names each source, its idea and where the design uses it.
 
 ## License
 

@@ -141,6 +141,12 @@ class LedgerTest(unittest.TestCase):
         r = report.ledger(self.ledger)[0]
         self.assertEqual((r["status"], r["human_edits"]), ("merged", True))
 
+    def test_merged_pr_with_the_old_builder_author(self):
+        self.reply("pulls-142", {"merged_at": "2026-10-09T11:00:00Z"})
+        self.reply("pulls-142-commits", [{"commit": {"author": {"name": report.OLD_BUILDER}}}])
+        r = report.ledger(self.ledger)[0]
+        self.assertEqual((r["status"], r["human_edits"]), ("merged", False))
+
     def test_report_text(self):
         self.reply("pulls-142", {"merged_at": "2026-10-09T11:00:00Z"})
         self.reply("pulls-142-commits", [{"commit": {"author": {"name": report.BUILDER}}}])

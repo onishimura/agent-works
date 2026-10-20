@@ -8,6 +8,6 @@
   "merge": {
     "mode": "propose",
     "auto_when": { "max_diff_lines": 150 },
-    "protected_paths": [".github/**", ".claude/**", ".trust-factory/**", "**/auth/**", "**/payments/**", "**/migrations/**"]
+    "protected_paths": [".github/**", ".claude/**", ".agent-works/**", "**/auth/**", "**/payments/**", "**/migrations/**"]
   }
 }

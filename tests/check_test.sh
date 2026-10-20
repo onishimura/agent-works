@@ -8,10 +8,10 @@
 setup() { # NAME: make the repos with a small shell project on main
   init_test_dir "$root/$1"
   make_repos
-  put .trust-factory/config.json '{
+  put .agent-works/config.json '{
   "branch": {"base": "main", "prefix": "agent/"},
   "checks": {"verify": ["sh run-tests.sh"], "fail_first": {"test_globs": ["**/*.test.sh"]}},
-  "merge": {"mode": "propose", "protected_paths": [".github/**", ".trust-factory/**", "**/auth/**"]}
+  "merge": {"mode": "propose", "protected_paths": [".github/**", ".agent-works/**", "**/auth/**"]}
 }'
   put run-tests.sh 'for t in $(find . -name "*.test.sh" | sort); do sh "$t" || { echo "FAIL $t"; exit 1; }; echo "ok $t"; done'
   put math.sh 'add() { echo $(($1 + $2)); }'
@@ -107,11 +107,11 @@ test_protected_path() {
 test_config_comes_from_base() {
   branch agent/42 && add_sub
   put sub.sh 'sub() { echo $(($1 + $2)); }'
-  put .trust-factory/config.json "$(jq '.checks.verify = ["true"]' "$T/work/.trust-factory/config.json")"
+  put .agent-works/config.json "$(jq '.checks.verify = ["true"]' "$T/work/.agent-works/config.json")"
   commit "Wrong sub, weaker config" && open_pr && run_check
   expect status "$(result .status)" needs-person
   expect verify "$(check_of verify)" fail
-  contains detail "$(result '.checks[2].detail')" ".trust-factory/config.json"
+  contains detail "$(result '.checks[2].detail')" ".agent-works/config.json"
 }
 
 test_head_moved() {

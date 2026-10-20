@@ -1,5 +1,5 @@
 #!/bin/bash
-# factory.sh: the trust-factory orchestrator. See docs/design.md, "Orchestrator".
+# factory.sh: the agent-works orchestrator. See docs/design.md, "Orchestrator".
 # Usage: factory.sh run | status | stop | issue ISSUE
 # Run it in a clone of the target repo, with the verify tools on PATH.
 #   run     Builds the issues with agent:ready, limits.concurrent_issues at a time, until none is left.
@@ -11,8 +11,8 @@ set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 usage() { echo "usage: factory.sh run | status | stop | issue ISSUE (in a clone of the target repo)" >&2; exit 2; }
 top=$(git rev-parse --show-toplevel 2> /dev/null) && cd "$top" || usage
-ledger=.trust-factory/ledger.jsonl pidfile=$(git rev-parse --absolute-git-dir)/trust-factory.pid
-mkdir -p .trust-factory && touch "$ledger"
+ledger=.agent-works/ledger.jsonl pidfile=$(git rev-parse --absolute-git-dir)/agent-works.pid
+mkdir -p .agent-works && touch "$ledger"
 
 api() { local path=$1; shift; gh api "repos/{owner}/{repo}/$path" "$@"; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -20,7 +20,7 @@ alive() { [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2> /dev/null; }
 tree() { local c; echo "$1"; for c in $(pgrep -P "$1"); do tree "$c"; done; }
 config() {
   local d; d=$(git ls-remote --symref origin HEAD | awk '$1 == "ref:" { sub("refs/heads/", "", $2); print $2 }')
-  git fetch -q origin "+refs/heads/$d:refs/trust-factory/default" && git show refs/trust-factory/default:.trust-factory/config.json
+  git fetch -q origin "+refs/heads/$d:refs/agent-works/default" && git show refs/agent-works/default:.agent-works/config.json
 }
 label() { # ISSUE LABEL: replace the agent:* label of the issue
   api "issues/$1/labels" | jq '{labels: ([.[].name | select(startswith("agent:") | not)] + [$l])}' --arg l "$2" \
@@ -50,7 +50,7 @@ done_attempt() { # STATUS: write the ledger line and set the label. The reasons 
     rebuild) label "$n" agent:ready ;;
     proposed) label "$n" agent:proposed ;;
     *) label "$n" agent:needs-person
-      jq -sr --argjson n "$n" --arg s "$(jq -r .started <<< "$record")" '"trust-factory needs a person for this issue.\n"
+      jq -sr --argjson n "$n" --arg s "$(jq -r .started <<< "$record")" '"agent-works needs a person for this issue.\n"
         + (map(select(.issue == $n and .started == $s) | "\nAttempt \(.attempts):\n" + (.reasons | map("- " + .) | join("\n")))
         | join("\n"))' "$ledger" | api "issues/$n/comments" -X POST -F body=@- > /dev/null ;;
   esac
@@ -59,7 +59,7 @@ done_attempt() { # STATUS: write the ledger line and set the label. The reasons 
 evidence() { # post the check result and the criteria map on the PR
   jq -rn --slurpfile c "$dir/check/result.json" --slurpfile v "$dir/verify/verdict.json" --arg r "$verdict" '
     def cell: tostring | gsub("\\|"; "\\|") | gsub("\n"; " ");
-    "### trust-factory evidence for \($c[0].commit[0:7])\n\n" + ($c[0].checks | map("- \(.name): \(.result)"
+    "### agent-works evidence for \($c[0].commit[0:7])\n\n" + ($c[0].checks | map("- \(.name): \(.result)"
       + (if .detail then " (\(.detail))" else "" end)) | join("\n")) + "\n\n**Verifier: \($r)**\n\n"
     + "| Criterion | Met | Evidence |\n|---|---|---|\n" + ($v[0].criteria // [] | map("| \(.criterion | cell) | "
       + "\(.met | cell) | \(.evidence | cell) |") | join("\n")) + ($v[0].concerns // [] | if length > 0
@@ -102,13 +102,13 @@ issue() { # ISSUE: one attempt: build, check, verify, decide
   api "issues/$n" | jq -r '"# \(.title)\n\n\(.body // "")"' > "$dir/issue.md" && api "pulls/$pr" | jq -r '.body // ""' \
     > "$dir/summary.md" && git worktree add -q --detach "$dir/head" "$commit" || { echo "#$n: verify: retry later"; return 0; }
   while IFS= read -r c; do cmds+=("$c"); done < <(jq -r '.checks.verify[]' "$dir/config.json")
-  (cd "$dir/head" && "$here/verify.sh" "$dir/verify" "refs/trust-factory/pr-$pr/base" "$dir/check/verify.log" \
+  (cd "$dir/head" && "$here/verify.sh" "$dir/verify" "refs/agent-works/pr-$pr/base" "$dir/check/verify.log" \
     "$dir/issue.md" "$dir/summary.md" "${cmds[@]}")
   git worktree remove --force "$dir/head"
   verdict=invalid
   python3 "$here/report.py" verdict "$dir/verify/verdict.json" 2> /dev/null && verdict=$(jq -r .result "$dir/verify/verdict.json")
   api "statuses/$commit" -X POST -f state="$([ "$verdict" = pass ] && echo success || echo failure)" \
-    -f context=trust-factory/verifier -f description="verifier: $verdict" > /dev/null
+    -f context=agent-works/verifier -f description="verifier: $verdict" > /dev/null
   evidence
   jq -r '((.criteria // [])[] | select(.met != true) | "criterion not met: \(.criterion) (\(.evidence))"),
     (.concerns // [])[] | gsub("\\s*\n\\s*"; " ")' "$dir/verify/verdict.json" > "$dir/reasons.txt" 2> /dev/null

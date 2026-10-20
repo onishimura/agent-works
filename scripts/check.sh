@@ -12,7 +12,7 @@ for n in "$issue" "$pr"; do case $n in '' | *[!0-9]*) usage ;; esac; done
 mkdir -p "$3" && out=$(cd "$3" && pwd) && : > "$out/checks.jsonl" && : > "$out/reasons.jsonl" || usage
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"; git worktree prune' EXIT
-ref=refs/trust-factory/pr-$pr
+ref=refs/agent-works/pr-$pr
 
 api() { local path=$1; shift; gh api "repos/{owner}/{repo}/$path" "$@"; }
 reason() { jq -n --arg r "$1" '$r' >> "$out/reasons.jsonl"; }
@@ -27,7 +27,7 @@ finish() { # STATUS [REASON]: post the commit status, write the result and exit
   local status=$1 state=
   [ -z "${2:-}" ] || reason "$2"
   case $status in proposed) state=success ;; rebuild | needs-person) state=failure ;; esac
-  if [ -n "$state" ] && ! api "statuses/$head" -X POST -f state="$state" -f context=trust-factory/checks \
+  if [ -n "$state" ] && ! api "statuses/$head" -X POST -f state="$state" -f context=agent-works/checks \
     -f description="$(jq -rs '.[0] // "all checks pass"' "$out/reasons.jsonl" | cut -c1-140)" > /dev/null; then
     status=retry-later
     reason "could not post the commit status"
@@ -65,9 +65,9 @@ git fetch -q origin "+refs/heads/$default:$ref/default" "+refs/heads/$base:$ref/
 
 # The config comes from the default branch, never from the PR.
 cfg=$tmp/config.json
-git show "$ref/default:.trust-factory/config.json" > "$cfg" 2> /dev/null \
+git show "$ref/default:.agent-works/config.json" > "$cfg" 2> /dev/null \
   && jq -e '.checks.verify | length > 0' "$cfg" > /dev/null 2>&1 \
-  || finish needs-person "no valid .trust-factory/config.json on $default"
+  || finish needs-person "no valid .agent-works/config.json on $default"
 want=$(jq -r .branch.base "$cfg")
 [ "$base" = "$want" ] || finish needs-person "the PR targets $base, not $want"
 

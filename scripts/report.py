@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summaries for trust-factory. See docs/design.md, "Trust suite" and "Run ledger".
+"""Summaries for agent-works. See docs/design.md, "Trust suite" and "Run ledger".
 
 Usage: report.py scorecard CASES_DIR RESULTS_DIR
        report.py verdict FILE      (exit 1 when the criteria map is not valid)
@@ -12,7 +12,8 @@ from datetime import datetime
 from pathlib import Path
 
 RESULTS = ("pass", "fail", "unsure")
-BUILDER = "trust-factory builder"
+BUILDER = "agent-works builder"
+OLD_BUILDER = "trust-factory builder"  # authors of PRs that merged before the rename
 USAGE = __doc__.split("Usage: ")[1]
 
 
@@ -96,7 +97,7 @@ def ledger(path):
         if pr and pr.get("merged_at"):
             r["status"] = "merged"
             commits = gh("pulls/%d/commits" % r["pr"]) or []
-            r["human_edits"] = any(c["commit"]["author"]["name"] != BUILDER for c in commits)
+            r["human_edits"] = any(c["commit"]["author"]["name"] not in (BUILDER, OLD_BUILDER) for c in commits)
     return sorted(last.values(), key=lambda r: r["started"])
 
 

@@ -13,7 +13,7 @@ case $issue in '' | *[!0-9]*) usage ;; esac
 here=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/build.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"; git worktree prune' EXIT
-ref=refs/trust-factory/build-$issue wt=$tmp/worktree
+ref=refs/agent-works/build-$issue wt=$tmp/worktree
 echo '{}' > "$tmp/run.json"
 
 api() { local path=$1; shift; gh api "repos/{owner}/{repo}/$path" "$@"; }
@@ -42,9 +42,9 @@ default=$(git ls-remote --symref origin HEAD | awk '$1 == "ref:" { sub("refs/hea
 cfg=$tmp/config.json
 [ -n "$default" ] && git fetch -q origin "+refs/heads/$default:$ref/default" \
   || finish retry-later "could not fetch the default branch from origin"
-git show "$ref/default:.trust-factory/config.json" > "$cfg" 2> /dev/null \
+git show "$ref/default:.agent-works/config.json" > "$cfg" 2> /dev/null \
   && jq -e '.checks.verify | length > 0' "$cfg" > /dev/null 2>&1 \
-  || finish needs-person "no valid .trust-factory/config.json on $default"
+  || finish needs-person "no valid .agent-works/config.json on $default"
 base=$(jq -r .branch.base "$cfg") branch=$(jq -r '.branch.prefix // "agent/"' "$cfg")$issue
 git fetch -q origin "+refs/heads/$base:$ref/base" || finish retry-later "could not fetch $base from origin"
 base_sha=$(git rev-parse "$ref/base")
@@ -64,7 +64,7 @@ while IFS= read -r cmd; do allowed+=("Bash($cmd:*)"); done < <(jq -r '.checks.ve
 python3 "$here/agent.py" "$here/../agents/builder.md" > "$tmp/agent.json" || exit 1
 schema='{"type": "object", "required": ["status", "title", "summary"], "additionalProperties": false,
   "properties": {"status": {"enum": ["done", "blocked"]}, "title": {"type": "string"}, "summary": {"type": "string"}}}'
-(cd "$wt" && GIT_AUTHOR_NAME="trust-factory builder" GIT_AUTHOR_EMAIL=builder@trust-factory.invalid \
+(cd "$wt" && GIT_AUTHOR_NAME="agent-works builder" GIT_AUTHOR_EMAIL=builder@agent-works.invalid \
   claude -p "$(cat "$tmp/prompt.txt")" --system-prompt "$(jq -r .prompt "$tmp/agent.json")" \
   --model "$(jq -r .model "$tmp/agent.json")" --tools "$(jq -r .tools "$tmp/agent.json")" \
   --permission-mode acceptEdits --permission-prompts none --allowedTools "${allowed[@]}" \
