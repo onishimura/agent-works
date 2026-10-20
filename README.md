@@ -27,7 +27,7 @@ Many agent workflows show that agents can open PRs. Few of them show how often t
 
 The workflow stays in `propose` mode: a person merges each PR. The decision document says what must change before `auto` mode.
 
-**Demo** ([`docs/demo.md`](docs/demo.md)). One issue in the public repo [`onishimura/trust-factory-demo`](https://github.com/onishimura/trust-factory-demo), from `agent:ready` to a proposed PR with its evidence, in about one minute. The quick start took 2 minutes 36 seconds of machine time, to the proposed PR and the scorecard.
+**Demo** ([`docs/demo.md`](docs/demo.md)). One issue in the public repo [`onishimura/agent-works-demo`](https://github.com/onishimura/agent-works-demo), from `agent:ready` to a proposed PR with its evidence, in about one minute. The quick start took 2 minutes 36 seconds of machine time, to the proposed PR and the scorecard.
 
 ## How it works
 

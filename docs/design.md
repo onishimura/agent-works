@@ -456,13 +456,14 @@ These are first targets. Change them after Phase 5.
 | 2026-10-09 | Install by clone: `scripts/setup.sh` prepares the target repo and links the skill into `~/.claude/skills` | It works with the current layout and needs no plugin format. A plugin can come later |
 | 2026-10-09 | License: MIT | Short and permissive, for a showcase repo |
 | 2026-10-09 | The core budget is approximately 760 lines | The setup script (35 lines) is part of v1 scope. The core is 752 lines |
-| 2026-10-09 | A public demo repo, `onishimura/trust-factory-demo`, holds the demo and the branch-protection test | The pilot is private on a free plan, so it has no branch protection. The demo shows real output that anyone can open |
+| 2026-10-09 | A public demo repo, `onishimura/agent-works-demo`, holds the demo and the branch-protection test | The pilot is private on a free plan, so it has no branch protection. The demo shows real output that anyone can open |
 | 2026-10-09 | `build.sh` changes `\n` escapes into line breaks when a summary has no line break | Demo run 1: the PR body showed the characters `\n` |
 | 2026-10-09 | The credits move from the README to `ACKNOWLEDGMENTS.md`, with each idea linked to the part of the design that uses it | The README stays short, and the credits show how each idea shaped the design |
 | 2026-10-09 | Before the repo goes public, the history uses the owner's GitHub no-reply email and calls the pilot `private-pilot` | The owner's email and the name of the private pilot repo must not become public |
 | 2026-10-21 | Rename `trust-factory` to `agent-works`. The rename covers the repo, the skill, the config directory `.agent-works/`, the commit status contexts `agent-works/checks` and `agent-works/verifier`, the builder author "agent-works builder" and the `refs/agent-works/` refs. `trust-suite/` and `factory.sh` keep their names | "Trust" claimed too much, and the name did not say that AI agents do the work. "Works" means a place of work and the work itself. The names that the workflow writes follow the project name, so one name is used everywhere |
 | 2026-10-21 | `report.py` also counts the old author "trust-factory builder" as the builder | Pilot PRs that merged before the rename have the old author. Without this rule, the report counts them as human edits |
 | 2026-10-21 | No fallback for the old config directory `.trust-factory/` | The project is two weeks old and has two known target repos. A repo that used the old name runs `git mv .trust-factory .agent-works` once and updates its required status checks. A fallback would add code for a one-time move |
+| 2026-10-21 | Rename the demo repo to `onishimura/agent-works-demo` | It follows the project name. GitHub redirects the old URL, and the branch protection stays as it was |
 
 ## Open questions
 

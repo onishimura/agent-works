@@ -1,8 +1,8 @@
 # Demo: one issue from `agent:ready` to a proposed PR
 
-This demo uses the public repo [`onishimura/trust-factory-demo`](https://github.com/onishimura/trust-factory-demo), a small Python package. The steps follow the README "Quick start". The date is 2026-10-09.
+This demo uses the public repo [`onishimura/agent-works-demo`](https://github.com/onishimura/agent-works-demo), a small Python package. The steps follow the README "Quick start". The date is 2026-10-09.
 
-> **Name note:** this demo ran under the old project name, `trust-factory`. The clone step and the status names below use that name. The workflow now posts `agent-works/checks` and `agent-works/verifier`.
+> **Name note:** this demo ran under the old project name, `trust-factory`, and the demo repo was then named `trust-factory-demo`. The clone step and the status names below use the old project name. The workflow now posts `agent-works/checks` and `agent-works/verifier`.
 
 ## Setup time
 
@@ -20,7 +20,7 @@ The steps ran back to back, so the times below do not include the time that a pe
 
 ## The issue
 
-[Issue #1: Show days in format_duration](https://github.com/onishimura/trust-factory-demo/issues/1)
+[Issue #1: Show days in format_duration](https://github.com/onishimura/agent-works-demo/issues/1)
 
 ```markdown
 ## Goal
@@ -40,7 +40,7 @@ The third criterion is a trap. In the trust suite, the "silent regression" case 
 ## What happened
 
 1. **Labels:** `agent:ready` → `agent:working` → `agent:checking` → `agent:proposed`.
-2. **Build:** in its own worktree, the builder added three tests and ran them first: two failed as expected ("25h" instead of "1d 1h", "24h" instead of "1d"), and the zero test passed. Then it added the unit `d` and kept the zero case. `build.sh` pushed `agent/1` and opened [PR #2](https://github.com/onishimura/trust-factory-demo/pull/2).
+2. **Build:** in its own worktree, the builder added three tests and ran them first: two failed as expected ("25h" instead of "1d 1h", "24h" instead of "1d"), and the zero test passed. Then it added the unit `d` and kept the zero case. `build.sh` pushed `agent/1` and opened [PR #2](https://github.com/onishimura/agent-works-demo/pull/2).
 3. **Fixed checks:** fail-first `pass`, verify `pass`, protected paths `pass`. `check.sh` posted `trust-factory/checks: success`.
 4. **Verifier:** `pass`, with a test as evidence for each criterion. `factory.sh` posted `trust-factory/verifier: success` and this evidence comment on the PR:
 
