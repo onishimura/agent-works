@@ -2,7 +2,7 @@
 
 **AI agents that build your GitHub issues, and a measure of how far to trust the result.**
 
-agent-works is a small Claude Code workflow for GitHub repos. A person marks an issue as ready. A builder agent makes the change in its own worktree, and a script opens a draft PR. Fixed checks run first. Then a verifier agent, which cannot edit code, connects each acceptance criterion to evidence. Every run writes a record, and a seeded test suite measures how well the verifier finds bad PRs.
+agent-works is a small workflow in which AI coding agents build the issues of a GitHub repo. The controller, a person or an AI orchestrator, marks an issue as ready. A builder agent makes the change in its own worktree, and a script opens a draft PR. Fixed checks run first. Then a verifier agent, which cannot edit code, connects each acceptance criterion to evidence. Every run writes a record, and a seeded test suite measures how well the verifier finds bad PRs. The builder and the verifier are roles, so the design does not depend on one AI. The current scripts run both with Claude Code (`claude -p`).
 
 > **Status:** public since 2026-10-09. The whole workflow runs and has offline tests (`tests/run.sh`). One Phase 6 check is open: a first-time user times the quick start. The full design is in [`docs/design.md`](docs/design.md).
 
@@ -32,7 +32,7 @@ The workflow stays in `propose` mode: a person merges each PR. The decision docu
 ## How it works
 
 ```text
-issue + agent:ready  (a person)
+issue + agent:ready  (the controller: a person or an AI orchestrator)
   → build.sh    worktree, builder agent (tests first), draft PR
   → check.sh    fail-first, verify commands, protected paths → commit status agent-works/checks
   → verify.sh   verifier agent: criteria map with evidence → commit status agent-works/verifier

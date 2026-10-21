@@ -14,7 +14,7 @@ Many agent workflows show that agents can open PRs. Few of them show how often t
 
 ## Principles
 
-- **A person controls the input.** Only a person adds the `agent:ready` label. By default, a person also merges.
+- **The controller controls the input.** The controller is a person or an AI orchestrator outside agent-works. Only the controller adds the `agent:ready` label. The agents in agent-works never add it. By default, the controller also merges.
 - **The builder never grades its own work.** The verifier starts with no previous context, and it has no Edit or Write tools.
 - **The verifier reads the diff, not the builder's summary.** A summary is a claim. The diff and the test results are evidence.
 - **The checks stay outside the editable surface.** The check step reads its config from the default branch, never from the PR. A PR that changes the workflow files, CI or the check config always goes to a person.
@@ -49,7 +49,7 @@ Many agent workflows show that agents can open PRs. Few of them show how often t
 
 | Label | Meaning | Who sets it |
 |---|---|---|
-| `agent:ready` | Ready for the builder | A person, or the orchestrator after a rebuild result |
+| `agent:ready` | Ready for the builder | The controller, or the orchestrator after a rebuild result |
 | `agent:working` | A builder has the issue | Orchestrator |
 | `agent:checking` | A draft PR exists; checks and the verifier run | Orchestrator |
 | `agent:proposed` | All checks pass; the PR is ready for a person to merge | Orchestrator |
@@ -59,7 +59,7 @@ Many agent workflows show that agents can open PRs. Few of them show how often t
 ### Flow
 
 ```text
-issue + agent:ready   (a person)
+issue + agent:ready   (the controller)
         │
         ▼
 orchestrator   (the user's session; 2 issues at a time)
@@ -464,6 +464,7 @@ These are first targets. Change them after Phase 5.
 | 2026-10-21 | `report.py` also counts the old author "trust-factory builder" as the builder | Pilot PRs that merged before the rename have the old author. Without this rule, the report counts them as human edits |
 | 2026-10-21 | No fallback for the old config directory `.trust-factory/` | The project is two weeks old and has two known target repos. A repo that used the old name runs `git mv .trust-factory .agent-works` once and updates its required status checks. A fallback would add code for a one-time move |
 | 2026-10-21 | Rename the demo repo to `onishimura/agent-works-demo` | It follows the project name. GitHub redirects the old URL, and the branch protection stays as it was |
+| 2026-10-21 | The controller can be a person or an AI orchestrator outside agent-works. The design does not depend on one AI; the current scripts run the agents with Claude Code | Owen's decision. No code checks who adds `agent:ready`. The agents in agent-works still never add it, so an agent cannot approve its own work. The controller must treat issue text as data, as the agents do |
 
 ## Open questions
 
