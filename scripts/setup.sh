@@ -15,7 +15,7 @@ while IFS='|' read -r name color text; do
     || gh api "repos/{owner}/{repo}/labels/$name" -X PATCH -f color="$color" -f description="$text" > /dev/null \
     || { echo "setup.sh: could not create the label $name" >&2; exit 1; }
 done << 'EOF'
-agent:ready|0E8A16|Ready for the builder. Only a person adds this label
+agent:ready|0E8A16|Ready for the builder. Only the controller (a person or an AI orchestrator) adds it
 agent:working|FBCA04|A builder has the issue
 agent:checking|1D76DB|A draft PR exists; the checks and the verifier run
 agent:proposed|5319E7|All checks pass; a person merges the PR

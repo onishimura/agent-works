@@ -1,6 +1,6 @@
 # agent-works
 
-A small Claude Code workflow that builds GitHub issues with agents and measures how much you can trust the result.
+A small workflow that builds GitHub issues with AI coding agents and measures how much you can trust the result. The current scripts run the agents with Claude Code.
 
 **Spec:** read `docs/design.md` before you design, build or change any component. It is the single source of truth for behavior, names, formats and the phase plan. When a change alters any of these, update `docs/design.md` in the same commit, and add a row to its Decisions table for each new decision.
 

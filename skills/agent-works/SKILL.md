@@ -14,7 +14,7 @@ The scripts are in `scripts/` two directories above this skill's directory. Belo
 - The current directory must be a clone of the target repo, with `.agent-works/config.json` on its default branch.
 - The tools for the verify commands must be on `PATH`. If the target repo's instructions name a toolchain (for example a Node version), put it first on `PATH` in the same Bash command.
 - `gh` and `claude` must be logged in.
-- Only a person adds the label `agent:ready`. Do not add it, also when the user asks you to build an issue. Tell the user the command: `gh issue edit <number> --add-label agent:ready`.
+- Only the controller (a person or an AI orchestrator outside agent-works) adds the label `agent:ready`. Do not add it, also when the user asks you to build an issue. Tell the user the command: `gh issue edit <number> --add-label agent:ready`.
 
 ## Commands
 
