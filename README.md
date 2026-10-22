@@ -16,7 +16,7 @@ Many agent workflows show that agents can open PRs. Few of them show how often t
 
 ## Results
 
-**Trust suite** ([`trust-suite/scorecard.md`](trust-suite/scorecard.md)). Six seeded bad PRs (a skipped criterion, an overclaiming summary, a weakened test, a silent regression, an injected instruction, and a gamed check that recreates a real pilot PR) and three good controls. In two full runs of the first eight cases, the verifier caught 5 of 5 bad PRs and passed 3 of 3 good controls. It also caught the gamed check in its first run. A full run costs about $0.50.
+**Trust suite** ([`trust-suite/scorecard.md`](trust-suite/scorecard.md)). Six seeded bad PRs (a skipped criterion, an overclaiming summary, a weakened test, a silent regression, an injected instruction, and a gamed check that recreates a real pilot PR) and three good controls. In three full runs, the verifier caught every bad PR and passed every good control. The latest run (2026-10-22) has all nine cases: 6 of 6 bad PRs caught, 3 of 3 good controls passed. A full run costs about $0.40.
 
 **Pilot** ([`docs/auto-merge-decision.md`](docs/auto-merge-decision.md)). Ten real issues in a private app repo, in 16 runs:
 
@@ -82,7 +82,7 @@ You need macOS or Linux with Bash 3.2 or later, git 2.38 or later, Python 3.9 or
    python3 ~/agent-works/scripts/report.py ledger .agent-works/ledger.jsonl
    ```
 
-To see the scorecard, run the trust suite. It uses model tokens, about $0.50 for each run.
+To see the scorecard, run the trust suite. It uses model tokens, about $0.40 for each run.
 
 ```bash
 ~/agent-works/trust-suite/run.sh
