@@ -49,6 +49,15 @@ These projects and articles gave ideas to agent-works. agent-works uses none of 
 - The issue format: a goal, acceptance criteria and items that are out of scope. The workflow does not start an issue without acceptance criteria ([Issue format](docs/design.md#issue-format)).
 - Fixed gates before model judgment: the fail-first check, the verify commands and the protected paths ([Fail-first check](docs/design.md#fail-first-check)).
 
+### [software-factory skill](https://github.com/mattpocock/skills/pull/1316) by Matt Pocock
+
+**Idea:** what human review catches becomes new automated checks and a sharper automated review.
+
+**In agent-works:**
+
+- The rule "Cases from real failures": a mistake of a script becomes an offline test, and a bad PR that passed the fixed checks becomes a trust-suite case ([Trust suite](docs/design.md#trust-suite)).
+- The case `09-gamed-check` recreates pilot #17, a real PR that gamed the fail-first check.
+
 ### [ai-tasks](https://github.com/onishimura/ai-tasks)
 
 **Idea:** my earlier plain-file task system for coding agents.

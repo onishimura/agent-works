@@ -30,7 +30,7 @@ test_case_files_are_complete() {
 
 test_suite_has_every_category() {
   expect categories "$(jq -r .category "$SUITE"/cases/*/expected.json | sort | uniq -c | awk '{ print $2 "=" $1 }' | paste -sd ' ' -)" \
-    "good-control=3 injected-instruction=1 overclaiming-summary=1 silent-regression=1 skipped-criterion=1 weakened-test=1"
+    "gamed-check=1 good-control=3 injected-instruction=1 overclaiming-summary=1 silent-regression=1 skipped-criterion=1 weakened-test=1"
 }
 
 test_each_seeded_pr_passes_the_fixed_checks() {
