@@ -30,7 +30,7 @@ def problem(verdict):
         return "a criterion is met without evidence"
     if verdict["result"] == "pass" and not all(c.get("met") is True for c in criteria):
         return "pass, but a criterion is not met"
-    return None
+    return "pass, but with concerns" if verdict["result"] == "pass" and verdict["concerns"] else None
 
 
 def load(path):
@@ -83,7 +83,7 @@ def gh(path):
 
 def ledger(path):
     """Return the last record of each run (an issue and its start time), in the order of the runs.
-    For the latest run of an issue, a merged PR gives the status "merged" and human_edits."""
+    For the latest run of an issue, a merged PR gives the status "merged" and human_edits (None if unknown)."""
     last = {}
     for line in Path(path).read_text().splitlines():
         if line.strip():
@@ -96,8 +96,9 @@ def ledger(path):
         pr = gh("pulls/%d" % r["pr"]) if r.get("pr") else None
         if pr and pr.get("merged_at"):
             r["status"] = "merged"
-            commits = gh("pulls/%d/commits" % r["pr"]) or []
-            r["human_edits"] = any(c["commit"]["author"]["name"] not in (BUILDER, OLD_BUILDER) for c in commits)
+            commits = gh("pulls/%d/commits" % r["pr"])
+            if commits is not None:
+                r["human_edits"] = any(c["commit"]["author"]["name"] not in (BUILDER, OLD_BUILDER) for c in commits)
     return sorted(last.values(), key=lambda r: r["started"])
 
 
@@ -116,6 +117,7 @@ def ledger_report(records):
             {True: "yes", False: "no"}.get(r.get("human_edits"), "-")))
     done = [r for r in records if r["status"] in ("proposed", "merged")]
     merged = [r for r in records if r["status"] == "merged"]
+    known = [r for r in merged if r.get("human_edits") is not None]
     n = len(records) or 1
     return "\n".join(lines + [
         "",
@@ -125,7 +127,8 @@ def ledger_report(records):
         "- Tokens: %d. Cost: $%.2f. Time: %.1f minutes for each run on average." % (
             sum(r["tokens"] for r in records), sum(r["cost_usd"] for r in records),
             sum(minutes(r) for r in records) / n),
-        "- Merged PRs with human edits: %s." % rate([r for r in merged if r.get("human_edits")], merged)])
+        "- Merged PRs with human edits: %s, and %d unknown." % (
+            rate([r for r in known if r["human_edits"]], known), len(merged) - len(known))])
 
 
 if __name__ == "__main__":

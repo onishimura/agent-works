@@ -1,6 +1,7 @@
 #!/bin/bash
 # Offline stand-in for gh. It supports "gh api" and "gh pr ready", and it logs
 # each call to $GH_STUB_DIR/calls.log. Replies come from files in $GH_STUB_DIR.
+# "gh pr ready" fails if $GH_STUB_DIR/pr-ready.fail exists.
 # The key of a path drops "repos/{owner}/{repo}/" and uses "-" for "/", "?",
 # "&" and "=". Examples: pulls-57, pulls-state-open-per_page-100.
 # GET: run <key>.sh if it exists. Else print <key>.<n>.json for call n if that
@@ -12,7 +13,7 @@
 # one) and is added to <key>.inputs.
 
 echo "$*" >> "$GH_STUB_DIR/calls.log"
-[ "$1 $2" = "pr ready" ] && exit 0
+[ "$1 $2" = "pr ready" ] && { [ ! -f "$GH_STUB_DIR/pr-ready.fail" ]; exit; }
 [ "$1" = api ] || { echo "gh stub: only 'gh api' and 'gh pr ready' are supported" >&2; exit 1; }
 shift
 args=("$@") method=GET path= stdin=

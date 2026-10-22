@@ -59,6 +59,7 @@ class ScorecardTest(unittest.TestCase):
         self.case("bad-result", "good-control", ["pass"], verdict("maybe"))
         self.case("no-evidence", "good-control", ["pass"], verdict("pass", evidence=" "))
         self.case("pass-unmet", "good-control", ["pass"], verdict("pass", met=None))
+        self.case("pass-concern", "good-control", ["pass"], verdict("pass", concerns=["regression: maybe"]))
         for name, row in self.rows().items():
             self.assertEqual(row["got"], "invalid", name)
             self.assertTrue(row["problem"], name)
@@ -147,6 +148,14 @@ class LedgerTest(unittest.TestCase):
         r = report.ledger(self.ledger)[0]
         self.assertEqual((r["status"], r["human_edits"]), ("merged", False))
 
+    def test_merged_pr_without_commit_data(self):
+        self.reply("pulls-142", {"merged_at": "2026-10-09T11:00:00Z"})  # no reply for the commits
+        records = report.ledger(self.ledger)
+        self.assertEqual((records[0]["status"], records[0].get("human_edits")), ("merged", None))
+        text = report.ledger_report(records)
+        self.assertIn("| #42 | #142 | merged | 2 | fail, pass | 1000 | $0.25 | 6.0 | - |", text)
+        self.assertIn("Merged PRs with human edits: 0/0, and 1 unknown.", text)
+
     def test_report_text(self):
         self.reply("pulls-142", {"merged_at": "2026-10-09T11:00:00Z"})
         self.reply("pulls-142-commits", [{"commit": {"author": {"name": report.BUILDER}}}])
@@ -156,7 +165,7 @@ class LedgerTest(unittest.TestCase):
         self.assertIn("Runs: 2, for 2 issues. Proposed or merged: 1/2 (50%) of the runs.", text)
         self.assertIn("Attempts: 1.5 for each run on average.", text)
         self.assertIn("Time: 4.0 minutes", text)
-        self.assertIn("Merged PRs with human edits: 0/1 (0%)", text)
+        self.assertIn("Merged PRs with human edits: 0/1 (0%), and 0 unknown.", text)
 
 
 if __name__ == "__main__":

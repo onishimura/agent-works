@@ -114,6 +114,30 @@ test_config_comes_from_base() {
   contains detail "$(result '.checks[2].detail')" ".agent-works/config.json"
 }
 
+test_pr_code_cannot_change_the_check_state() {
+  # The test code runs in a worktree in the check's temp directory, and it tries to change the check's files there.
+  branch agent/42 && add_sub && put sub.sh 'sub() { echo $(($1 + $2)); }' && put .github/workflows/ci.yml 'on: push'
+  put sub.test.sh 'echo "{\"checks\": {\"verify\": [\"true\"]}}" > ../config.json; : > ../protected.txt
+. ./sub.sh && [ "$(sub 5 3)" = 2 ]'
+  commit "Wrong sub that changes the check files" && open_pr && run_check
+  expect status "$(result .status)" needs-person
+  expect verify "$(check_of verify)" fail
+  expect protected-paths "$(check_of protected-paths)" fail
+}
+
+test_config_with_wrong_types_needs_a_person() {
+  local good f; good=$(cat "$T/work/.agent-works/config.json")
+  for f in '.checks.verify = "sh run-tests.sh"' '.checks.verify += [""]' '.merge.protected_paths = ".github/**"'; do
+    git -C "$T/work" checkout -q main
+    put .agent-works/config.json "$(jq "$f" <<< "$good")" && commit "Config: $f" && git -C "$T/work" push -q origin main
+    branch agent/42 && put README.md "Docs: $f" && put .github/workflows/ci.yml 'on: push' && commit "Docs and CI" && open_pr
+    echo '{"number": 42, "labels": [{"name": "type:docs"}]}' > "$T/gh/issues-42.json"
+    run_check
+    expect "status with $f" "$(result .status)" needs-person
+    contains "reason with $f" "$(result '.reasons[0]')" "no valid .agent-works/config.json"
+  done
+}
+
 test_head_moved() {
   branch agent/42 && add_sub && commit "Add sub" && open_pr
   jq '.head.sha = "1111111111111111111111111111111111111111"' "$T/gh/pulls-57.json" > "$T/gh/pulls-57.2.json"

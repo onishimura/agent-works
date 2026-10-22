@@ -31,7 +31,7 @@ issues() { # LABEL...: the open issues with one of these labels
     | jq -r '.[] | select(.pull_request | not) | select(any(.labels[].name; IN($ARGS.positional[]))) | .number' --args "$@"
 }
 
-done_attempt() { # STATUS: write the ledger line and set the label. The reasons are in $dir/reasons.txt.
+done_attempt() { # STATUS: set the label and write the ledger line. The reasons are in $dir/reasons.txt.
   record=$(jq -c --arg st "$1" --arg t "$(now)" --arg pr "${pr:-}" --arg ch "${s:-}" --arg v "${verdict:-}" \
     --slurpfile c "$dir/config.json" --slurpfile b "$dir/build.json" --slurpfile vr "$dir/verify/verifier.raw.json" \
     --rawfile why "$dir/reasons.txt" '($c[0].limits.attempts_per_issue // 3) as $limit
@@ -44,16 +44,16 @@ done_attempt() { # STATUS: write the ledger line and set the label. The reasons 
     | if $st == "rebuild" and .attempts >= $limit
       then .status = "needs-person" | .reasons += ["the attempt limit (\($limit)) is reached"] else .status = $st end' \
     <<< "$record")
+  local st next; st=$(jq -r .status <<< "$record")
+  case $st in rebuild) next=agent:ready ;; proposed) next=agent:proposed ;; *) next=agent:needs-person ;; esac
+  # Without the label, the attempt writes no ledger line, so the next run starts it again.
+  label "$n" "$next" || { echo "#$n: label: retry later"; return 0; }
   echo "$record" >> "$ledger"
-  echo "#$n: attempt $(jq .attempts <<< "$record"): $(jq -r .status <<< "$record")"
-  case $(jq -r .status <<< "$record") in
-    rebuild) label "$n" agent:ready ;;
-    proposed) label "$n" agent:proposed ;;
-    *) label "$n" agent:needs-person
-      jq -sr --argjson n "$n" --arg s "$(jq -r .started <<< "$record")" '"agent-works needs a person for this issue.\n"
-        + (map(select(.issue == $n and .started == $s) | "\nAttempt \(.attempts):\n" + (.reasons | map("- " + .) | join("\n")))
-        | join("\n"))' "$ledger" | api "issues/$n/comments" -X POST -F body=@- > /dev/null ;;
-  esac
+  echo "#$n: attempt $(jq .attempts <<< "$record"): $st"
+  [ "$next" != agent:needs-person ] || jq -sr --argjson n "$n" --arg s "$(jq -r .started <<< "$record")" '
+    "agent-works needs a person for this issue.\n" + (map(select(.issue == $n and .started == $s)
+    | "\nAttempt \(.attempts):\n" + (.reasons | map("- " + .) | join("\n"))) | join("\n"))' "$ledger" \
+    | api "issues/$n/comments" -X POST -F body=@- > /dev/null
 }
 
 evidence() { # post the check result and the criteria map on the PR
@@ -107,13 +107,14 @@ issue() { # ISSUE: one attempt: build, check, verify, decide
   git worktree remove --force "$dir/head"
   verdict=invalid
   python3 "$here/report.py" verdict "$dir/verify/verdict.json" 2> /dev/null && verdict=$(jq -r .result "$dir/verify/verdict.json")
+  # A PR without its status, its evidence or (for pass) the ready state is not done, so retry later.
   api "statuses/$commit" -X POST -f state="$([ "$verdict" = pass ] && echo success || echo failure)" \
-    -f context=agent-works/verifier -f description="verifier: $verdict" > /dev/null
-  evidence
+    -f context=agent-works/verifier -f description="verifier: $verdict" > /dev/null && evidence \
+    && { [ "$verdict" != pass ] || gh pr ready "$pr" > /dev/null 2>&1; } || { echo "#$n: GitHub: retry later"; return 0; }
   jq -r '((.criteria // [])[] | select(.met != true) | "criterion not met: \(.criterion) (\(.evidence))"),
     (.concerns // [])[] | gsub("\\s*\n\\s*"; " ")' "$dir/verify/verdict.json" > "$dir/reasons.txt" 2> /dev/null
   case $verdict in
-    pass) gh pr ready "$pr" > /dev/null 2>&1; done_attempt proposed ;;
+    pass) done_attempt proposed ;;
     fail) done_attempt rebuild ;;
     *) echo "the verifier result is $verdict" >> "$dir/reasons.txt"; done_attempt needs-person ;;
   esac
@@ -122,19 +123,21 @@ issue() { # ISSUE: one attempt: build, check, verify, decide
 run() {
   alive && { echo "factory.sh: a run is active (pid $(cat "$pidfile"))" >&2; exit 1; }
   echo $$ > "$pidfile"
-  local max limit list batch n labels="agent:ready agent:working agent:checking"
+  local max limit resume ready batch n
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/factory-run.XXXXXX") || exit 1
   trap 'rm -rf "$tmp" "$pidfile"' EXIT
   config > "$tmp/config.json" && export CONFIG=$tmp/config.json || exit 1
   max=$(jq -r '.limits.concurrent_issues // 2' "$CONFIG") limit=$(jq -r '.limits.attempts_per_issue // 3' "$CONFIG")
-  while list=$(issues $labels); do
+  # A stopped run left issues in agent:working or agent:checking. They start first, once each.
+  resume=$(issues agent:working agent:checking) || exit 1
+  while ready=$(issues agent:ready); do
     # One run starts each issue at most "limit" times, so an issue that keeps failing cannot loop.
-    batch=$(for n in $list; do [ "$(cat "$tmp/picks-$n" 2> /dev/null | wc -l)" -lt "$limit" ] && echo "$n"; done \
-      | awk -v max="$max" 'NR <= max')
+    batch=$({ for n in $resume; do [ -f "$tmp/picks-$n" ] || echo "$n"; done
+      for n in $ready; do [ "$(cat "$tmp/picks-$n" 2> /dev/null | wc -l)" -lt "$limit" ] && echo "$n"; done; } \
+      | awk -v max="$max" '!seen[$0]++ && ++k <= max')
     [ -n "$batch" ] || break
     for n in $batch; do echo x >> "$tmp/picks-$n"; issue "$n" & done
     wait
-    labels=agent:ready
   done
 }
 

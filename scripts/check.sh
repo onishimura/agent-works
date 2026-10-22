@@ -7,19 +7,20 @@ set -uo pipefail
 
 usage() { echo "usage: check.sh ISSUE PR OUT_DIR (in a clone of the target repo)" >&2; exit 2; }
 [ $# -eq 3 ] && git rev-parse --git-dir > /dev/null 2>&1 || usage
-issue=$1 pr=$2 head= failed=
+issue=$1 pr=$2 head= failed= checks= reasons= protected= cmds=()
 for n in "$issue" "$pr"; do case $n in '' | *[!0-9]*) usage ;; esac; done
-mkdir -p "$3" && out=$(cd "$3" && pwd) && : > "$out/checks.jsonl" && : > "$out/reasons.jsonl" || usage
+mkdir -p "$3" && out=$(cd "$3" && pwd) || usage
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"; git worktree prune' EXIT
 ref=refs/agent-works/pr-$pr
 
 api() { local path=$1; shift; gh api "repos/{owner}/{repo}/$path" "$@"; }
-reason() { jq -n --arg r "$1" '$r' >> "$out/reasons.jsonl"; }
+# The PR's code runs in the checks and can change files, so the checks and the reasons stay in shell variables.
+reason() { reasons+=$(jq -n --arg r "$1" '$r')$'\n'; }
 
 check() { # NAME RESULT [DETAIL]: add a check to the result; a failed check is also a reason
-  jq -cn --arg n "$1" --arg r "$2" --arg d "${3:-}" \
-    '{name: $n, result: $r} + if $d == "" then {} else {detail: $d} end' >> "$out/checks.jsonl"
+  checks+=$(jq -cn --arg n "$1" --arg r "$2" --arg d "${3:-}" \
+    '{name: $n, result: $r} + if $d == "" then {} else {detail: $d} end')$'\n'
   [ "$2" != fail ] || reason "$1: ${3:-}"
 }
 
@@ -28,12 +29,12 @@ finish() { # STATUS [REASON]: post the commit status, write the result and exit
   [ -z "${2:-}" ] || reason "$2"
   case $status in proposed) state=success ;; rebuild | needs-person) state=failure ;; esac
   if [ -n "$state" ] && ! api "statuses/$head" -X POST -f state="$state" -f context=agent-works/checks \
-    -f description="$(jq -rs '.[0] // "all checks pass"' "$out/reasons.jsonl" | cut -c1-140)" > /dev/null; then
+    -f description="$(jq -rs '.[0] // "all checks pass"' <<< "$reasons" | cut -c1-140)" > /dev/null; then
     status=retry-later
     reason "could not post the commit status"
   fi
   jq -n --arg issue "$issue" --arg pr "$pr" --arg commit "$head" --arg status "$status" \
-    --slurpfile checks "$out/checks.jsonl" --slurpfile reasons "$out/reasons.jsonl" \
+    --argjson checks "$(jq -s . <<< "$checks")" --argjson reasons "$(jq -s . <<< "$reasons")" \
     '{issue: ($issue | tonumber), pr: ($pr | tonumber), commit: (if $commit == "" then null else $commit end),
       status: $status, checks: $checks, reasons: $reasons}' | tee "$out/result.json"
   exit 0
@@ -50,10 +51,10 @@ changed() { # CONFIG_PATH DIFF_OPTION: diff the PR, only the files that match th
 run_verify() { # DIR LOG: run the verify commands in DIR; at the first failure, set $failed
   local cmd
   : > "$2"
-  while IFS= read -r cmd; do
+  for cmd in "${cmds[@]}"; do
     echo "\$ $cmd" >> "$2"
     (cd "$1" && bash -c "$cmd") < /dev/null >> "$2" 2>&1 || { failed=$cmd; return 1; }
-  done < <(jq -r '.checks.verify[]' "$cfg")
+  done
 }
 
 # Read the PR and fetch its head, its base and the default branch.
@@ -63,11 +64,13 @@ git fetch -q origin "+refs/heads/$default:$ref/default" "+refs/heads/$base:$ref/
   "+refs/pull/$pr/head:$ref/head" && git cat-file -e "$head^{commit}" \
   || finish retry-later "could not fetch PR #$pr and its base from origin"
 
-# The config comes from the default branch, never from the PR.
+# The config comes from the default branch, never from the PR. A value of the wrong type must not skip a check.
 cfg=$tmp/config.json
-git show "$ref/default:.agent-works/config.json" > "$cfg" 2> /dev/null \
-  && jq -e '.checks.verify | length > 0' "$cfg" > /dev/null 2>&1 \
+git show "$ref/default:.agent-works/config.json" > "$cfg" 2> /dev/null && jq -e '(.checks.verify | type == "array"
+  and length > 0 and all(type == "string" and . != "")) and all(.merge.protected_paths, .checks.fail_first.test_globs;
+  . == null or (type == "array" and all(type == "string")))' "$cfg" > /dev/null 2>&1 \
   || finish needs-person "no valid .agent-works/config.json on $default"
+while IFS= read -r c; do cmds+=("$c"); done < <(jq -r '.checks.verify[]' "$cfg")
 want=$(jq -r .branch.base "$cfg")
 [ "$base" = "$want" ] || finish needs-person "the PR targets $base, not $want"
 
@@ -75,7 +78,7 @@ base_sha=$(git rev-parse "$ref/base")
 git merge-tree --write-tree --name-only --no-messages "$base_sha" "$head" > "$tmp/merge.txt" \
   || finish rebuild "the base does not merge in; conflicts: $(tail -n +2 "$tmp/merge.txt" | paste -sd ' ' -)"
 mb=$(git merge-base "$base_sha" "$head")
-changed .merge.protected_paths --name-only > "$tmp/protected.txt"
+protected=$(changed .merge.protected_paths --name-only)
 changed .checks.fail_first.test_globs --binary > "$out/tests.diff"
 
 # Fail-first: the PR's test changes, without the rest of the PR, must make a verify command fail.
@@ -98,20 +101,19 @@ fi
 # Verify: all verify commands pass at the PR head.
 git worktree add -q --detach "$tmp/head" "$head" || finish retry-later "could not check out the PR head"
 if run_verify "$tmp/head" "$out/verify.log"; then
-  n=$(jq '.checks.verify | length' "$cfg")
-  check verify pass "$n/$n verify commands pass"
+  check verify pass "${#cmds[@]}/${#cmds[@]} verify commands pass"
 else
   check verify fail "'$failed' fails; see verify.log"
 fi
 
-if [ -s "$tmp/protected.txt" ]; then
-  check protected-paths fail "$(paste -sd ' ' - < "$tmp/protected.txt")"
+if [ -n "$protected" ]; then
+  check protected-paths fail "$(paste -sd ' ' - <<< "$protected")"
 else
   check protected-paths pass
 fi
 
 now=$(head_now) || finish retry-later "could not read PR #$pr from GitHub"
 [ "$now" = "$head" ] || finish recheck "the PR head moved during the check"
-if [ -s "$tmp/protected.txt" ]; then finish needs-person; fi
-if jq -se 'any(.result == "fail")' "$out/checks.jsonl" > /dev/null; then finish rebuild; fi
+if [ -n "$protected" ]; then finish needs-person; fi
+if jq -se 'any(.result == "fail")' <<< "$checks" > /dev/null; then finish rebuild; fi
 finish proposed

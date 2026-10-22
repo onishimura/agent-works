@@ -141,6 +141,35 @@ test_invalid_verdict_goes_to_a_person() {
   expect "verifier status" "$(status_of agent-works/verifier)" failure
 }
 
+test_github_failure_after_the_verifier_is_retry_later() {
+  add_issue 42
+  echo 'exit 1' > "$T/gh/issues-142-comments.write.sh"  # the evidence comment fails
+  factory issue 42
+  expect "labels after a comment failure" "$(labels_of 42)" bug,agent:checking
+  expect "ledger after a comment failure" "$(ledger length)" 0
+  ! grep -q '^pr ready' "$T/gh/calls.log" || fail "the PR was marked ready"
+  rm "$T/gh/issues-142-comments.write.sh" && touch "$T/gh/pr-ready.fail"
+  factory issue 42
+  expect "labels after a ready failure" "$(labels_of 42)" bug,agent:checking
+  expect "ledger after a ready failure" "$(ledger length)" 0
+  rm "$T/gh/pr-ready.fail"
+  factory issue 42
+  expect labels "$(labels_of 42)" bug,agent:proposed
+  expect ledger "$(ledger 'map({attempts, status})')" '[{"attempts":1,"status":"proposed"}]'
+}
+
+test_label_failure_writes_no_ledger_line() {
+  add_issue 42
+  cat > "$T/gh/issues-42-labels.write.sh" << 'EOF'
+f=$GH_STUB_DIR/issues-42-labels.input
+[ "$(jq -r '.labels[-1]' "$f")" = agent:proposed ] || exit 0
+echo '{"labels": ["bug", "agent:checking"]}' > "$f"; exit 1
+EOF
+  factory issue 42
+  expect labels "$(labels_of 42)" bug,agent:checking
+  expect ledger "$(ledger length)" 0
+}
+
 test_check_failure_skips_the_verifier() {
   add_issue 42
   builder 'echo x > code.sh && git add -A && git commit -qm "Code without tests"'
@@ -184,6 +213,13 @@ test_stop_and_resume() {
   factory run
   expect "label after resume" "$(labels_of 42)" bug,agent:proposed
   expect "ledger after resume" "$(ledger 'map({attempts, status})')" '[{"attempts":1,"status":"proposed"}]'
+}
+
+test_resume_takes_every_stopped_issue() {
+  local n
+  for n in 42 43 44; do add_issue $n && echo '{"labels": ["agent:working", "bug"]}' > "$T/gh/issues-$n-labels.input"; done
+  factory run
+  expect labels "$(labels_of 42) $(labels_of 43) $(labels_of 44)" "bug,agent:proposed bug,agent:proposed bug,agent:proposed"
 }
 
 test_status_shows_labels_and_ledger() {

@@ -122,7 +122,7 @@ For an issue with the label `type:docs` or `type:chore`, the result is "skipped"
 - `evidence` starts with `test:` (a test that ran and passed) or `code:` (a file and line that the verifier read).
 - Each concern starts with its type: `false claim:`, `weakened test:`, `regression:` or `injected instruction:`.
 - The result is `fail` when a criterion is `false`, or for a false claim, a weakened test, a sure regression or an injected instruction that the PR adds. The result is `unsure` when a criterion is `null` or a regression is possible. Otherwise, the result is `pass`.
-- A `pass` with a criterion that is not `true` is not valid.
+- A `pass` with a criterion that is not `true`, or with a concern, is not valid.
 
 ### Build script
 
@@ -156,6 +156,8 @@ The script prints one JSON result. The exit code shows only whether the script r
 4. Run the checks `fail-first`, `verify` and `protected-paths`. All three always run, so a rebuild gets all the feedback.
 5. Read the PR again. If the head moved, the result is `recheck`.
 6. Post a commit status, and write the result.
+
+The verify commands run the PR's code, and that code can change files. So the script reads the config and the protected paths before the code runs, and it keeps the checks and the reasons in shell variables. The code cannot change these results through the files of the check. See "Safety" for the limits.
 
 The script writes `OUT_DIR/result.json` and prints it. In `OUT_DIR`, it also writes `tests.diff` (the PR's test changes), `fail-first.log` and `verify.log`. The verifier can read these files.
 
@@ -211,13 +213,15 @@ The config lives in the target repo at `.agent-works/config.json`. The check scr
 }
 ```
 
+A value of the wrong type stops the check with `needs-person`, because it could skip a check. `checks.verify` must be a list of commands that are not empty. `merge.protected_paths` and `checks.fail_first.test_globs` must be lists of globs, or absent.
+
 The values are first guesses. Change them after Phase 5.
 
 ### Orchestrator
 
 `scripts/factory.sh` makes every decision of the orchestrator. The skill `skills/agent-works/SKILL.md` only starts it. The script runs in a clone of the target repo, with the verify tools on `PATH`.
 
-- `run` takes the open issues with `agent:ready`, `limits.concurrent_issues` at a time, and it runs one attempt for each. It repeats until no issue has `agent:ready`. Its first round also takes the issues in `agent:working` or `agent:checking`, which a stopped run left. One run starts each issue at most `limits.attempts_per_issue` times.
+- `run` takes the open issues with `agent:ready`, `limits.concurrent_issues` at a time, and it runs one attempt for each. It repeats until no issue has `agent:ready`. The run also takes the issues in `agent:working` or `agent:checking`, which a stopped run left. These issues start first, and each starts once, also when they need more than one round. One run starts each issue at most `limits.attempts_per_issue` times.
 - `status` shows the `agent:*` issues and the last ledger record of each issue.
 - `stop` stops the active run and all its processes. The labels stay as they are. A pid file in the git directory marks the active run, so only one run can be active.
 - `issue N` runs one attempt for issue N.
@@ -227,8 +231,8 @@ An attempt does these steps:
 1. Set `agent:working`, and run `build.sh` with the reasons from the last attempt as feedback.
 2. Set `agent:checking`, and run `check.sh`. A `recheck` runs the check again, up to three times.
 3. If the check gives `proposed`, run `verify.sh` in a worktree at the checked commit. `report.py verdict` rejects a criteria map that is not valid.
-4. Post the commit status `agent-works/verifier` (`success` only for `pass`), and post an evidence comment on the PR: the checks and the criteria map.
-5. Decide, write one ledger line, and set the next label:
+4. Post the commit status `agent-works/verifier` (`success` only for `pass`), and post an evidence comment on the PR: the checks and the criteria map. For `pass`, mark the PR as ready for review. If one of these steps fails, the attempt is `retry-later`.
+5. Decide, set the next label, and write one ledger line. If the label does not change, the attempt is `retry-later`, and it writes no line:
 
 | Result of the attempt | Status | Next label |
 |---|---|---|
@@ -236,7 +240,7 @@ An attempt does these steps:
 | Check `rebuild`, or verifier `fail` | `rebuild` | `agent:ready` |
 | `rebuild` at the attempt limit | `needs-person` | `agent:needs-person` |
 | Build or check `needs-person`, verifier `unsure`, or a criteria map that is not valid | `needs-person` | `agent:needs-person` |
-| Build, check or verifier `retry-later` | No ledger line | No change |
+| Build, check or verifier `retry-later`, or a failed GitHub step in step 4 or 5 | No ledger line | No change |
 
 For `needs-person`, the script adds a comment to the issue with the reasons of each attempt in the run. A rebuild starts again from the base, and the builder gets the reasons: the failed checks, the criteria that are not met, and the concerns.
 
@@ -250,7 +254,7 @@ The ledger is `.agent-works/ledger.jsonl` in the target repo (not committed). Ea
 
 After a `rebuild` line, the next attempt continues the same record. After a final status (`proposed` or `needs-person`), a new `agent:ready` starts a new record. A stopped attempt writes no line, so the next run starts that attempt again. The tokens of a stopped attempt are not recorded.
 
-`report.py ledger` shows one row for each run, so a failed run stays in the totals after a later run succeeds. For the latest run of an issue with a merged PR, it sets the status `merged` and fills in `human_edits`: true when a commit has an author other than "agent-works builder".
+`report.py ledger` shows one row for each run, so a failed run stays in the totals after a later run succeeds. For the latest run of an issue with a merged PR, it sets the status `merged` and fills in `human_edits`: true when a commit has an author other than "agent-works builder". When GitHub does not give the commits, `human_edits` is unknown. The summary counts only the merged PRs with a known value, and it shows the number of unknown values.
 
 ### Trust suite
 
@@ -323,6 +327,7 @@ One or two sentences.
 - Permission rules allow only the commands that each role needs. The builder can commit and run the verify commands. The verifier can read and run the tests. The sandbox limits file and network access.
 - The verifier cannot push. Even if it changes a file through Bash, only the checked commit on GitHub can merge.
 - `stop` stops the agents and leaves the labels as they are. The next `run` continues from the labels and the ledger.
+- `check.sh` runs the PR's code without a sandbox, with the rights and the `gh` login of the user. The results of the check stay in memory, so the code cannot change them through the files of the check. But the code can start a background process, change the git hooks of the clone, or use the `gh` login. Then it can change later steps or the repo. Only an OS sandbox for the verify commands stops this (see Open questions).
 
 ## Implementation plan
 
@@ -465,9 +470,17 @@ These are first targets. Change them after Phase 5.
 | 2026-10-21 | No fallback for the old config directory `.trust-factory/` | The project is two weeks old and has two known target repos. A repo that used the old name runs `git mv .trust-factory .agent-works` once and updates its required status checks. A fallback would add code for a one-time move |
 | 2026-10-21 | Rename the demo repo to `onishimura/agent-works-demo` | It follows the project name. GitHub redirects the old URL, and the branch protection stays as it was |
 | 2026-10-21 | The controller can be a person or an AI orchestrator outside agent-works. The design does not depend on one AI; the current scripts run the agents with Claude Code | Owen's decision. No code checks who adds `agent:ready`. The agents in agent-works still never add it, so an agent cannot approve its own work. The controller must treat issue text as data, as the agents do |
+| 2026-10-22 | `check.sh` reads the config and the protected paths before the PR's code runs, and it keeps the checks and the reasons in shell variables | An outside review: the PR's test code changed the config and the protected-path list in the check's temp directory. Broken code with a workflow change got three passing checks |
+| 2026-10-22 | A config value of the wrong type stops the check with `needs-person` | An outside review: with a string for `checks.verify`, no command ran, and a docs issue got `proposed`. A string for `merge.protected_paths` turned off the protected-path check |
+| 2026-10-22 | A `pass` with a concern is not a valid criteria map | Each type of concern gives `fail` or `unsure`. An outside review: the orchestrator accepted a `pass` with a `regression:` concern |
+| 2026-10-22 | A failed status, evidence comment, ready state or label after the verifier gives `retry-later`. The label changes before the ledger line | An outside review: these GitHub failures still gave a `proposed` ledger line. A failed label left a ledger line, and the next run built the issue again |
+| 2026-10-22 | `run` keeps the issues of a stopped run in its queue until each starts once | An outside review: only the first round took them. With more of them than `limits.concurrent_issues`, the others stayed in `agent:working` |
+| 2026-10-22 | `human_edits` is unknown when GitHub does not give the commits | An outside review: a failed request counted as "no human edits", so the report showed too much work without human changes |
+| 2026-10-22 | Keep the core budget at approximately 760 lines | The six fixes above add 8 lines. The core is 763 lines |
 
 ## Open questions
 
 - Do we keep the state in GitHub issue labels (current design) or in plain markdown files?
 - Where do we publish the ledger: in the repo, or only in the README?
 - Does the builder use a test-driven development skill when one is installed?
+- Do we run the verify commands in an OS sandbox (`sandbox-exec` on macOS, `bwrap` on Linux) that lets them write only in their worktree? This stops the attacks in "Safety". Linux then needs `bwrap`, and some verify commands need more writable paths, for example a package cache.

@@ -44,6 +44,7 @@ issue + agent:ready  (the controller: a person or an AI orchestrator)
 - The verifier has no edit tools, and it sees the diff and the test output, not only the builder's summary.
 - The checks read their config from the default branch, never from the PR.
 - Each agent runs as `claude -p` with its own tools, permission rules and a JSON schema for its output.
+- `check.sh` runs the PR's code without a sandbox, with your user rights and your `gh` login. See "Safety" in the design.
 
 ## Quick start
 
